@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#090A0D" />
+  <title>MYSTERIA — Cinematic Detective Investigation Platform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            serif: ['Cormorant Garamond', 'Georgia', 'serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          },
+          colors: {
+            noir: {
+              bg: '#090A0D',
+              sec: '#111318',
+              panel: '#17191F',
+              elev: '#20232B',
+              accent: '#B51F32',
+              secAccent: '#791C2A',
+              text: '#F2F0EC',
+              muted: '#92949D',
+              border: '#30323A'
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <style>
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background-color: #090A0D;
+      color: #F2F0EC;
+      overflow-x: hidden;
+    }
+    .noir-panel {
+      background-color: #17191F;
+      border: 1px solid #30323A;
+      box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.9);
+    }
+    .noir-elevated {
+      background-color: #20232B;
+      border: 1px solid #30323A;
+    }
+    .dossier-paper {
+      background: radial-gradient(circle at top right, rgba(181, 31, 50, 0.08), transparent 45%),
+                  linear-gradient(180deg, #17191F 0%, #111318 100%);
+      border: 1px solid #30323A;
+    }
+    .cork-wall {
+      background-color: #111318;
+      background-image:
+        radial-gradient(rgba(255,255,255,0.035) 1px, transparent 0),
+        linear-gradient(to right, rgba(48,50,58,0.22) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(48,50,58,0.22) 1px, transparent 1px);
+      background-size: 20px 20px, 48px 48px, 48px 48px;
+    }
+    .blood-glow { box-shadow: 0 0 28px -6px rgba(181, 31, 50, 0.55); }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    #rain-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.5; }
+    .evidence-card { touch-action: none; user-select: none; cursor: grab; transition: box-shadow 0.15s ease; }
+    .evidence-card:active { cursor: grabbing; z-index: 40; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .cinematic-enter { animation: fadeIn 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-[#B51F32] selection:text-white">
+  <!-- 3D Rainy Noir Atmosphere -->
+  <div id="rain-bg"></div>
+  <!-- Vignette Overlay -->
+  <div class="fixed inset-0 pointer-events-none z-10 bg-[radial-gradient(circle_at_center,transparent_35%,rgba(9,10,13,0.88)_100%)]"></div>
+
+  <!-- Cinematic Loading Screen -->
+  <div id="screen-loading" class="fixed inset-0 z-50 bg-[#090A0D] flex flex-col items-center justify-center p-6 text-center transition-opacity duration-500">
+    <div class="w-16 h-16 border border-[#B51F32]/60 bg-[#791C2A]/20 flex items-center justify-center mb-6 blood-glow">
+      <i data-lucide="search" class="w-7 h-7 text-[#B51F32] animate-pulse"></i>
+    </div>
+    <h1 class="font-serif text-5xl sm:text-6xl font-bold tracking-[0.24em] text-[#F2F0EC]">MYSTERIA</h1>
+    <p class="mt-3 text-xs font-mono tracking-[0.25em] text-[#92949D] uppercase">Initializing MYSTERIA CORE • Truth-First Engine</p>
+    <div class="w-60 h-0.5 bg-[#17191F] mt-7 overflow-hidden">
+      <div id="loader-bar" class="h-full bg-[#B51F32] w-0 transition-all duration-700"></div>
+    </div>
+  </div>
+
+  <!-- App Shell -->
+  <div class="relative z-20 flex-1 flex flex-col lg:flex-row min-h-screen">
+    <!-- Mobile Top Bar (Shown inside Bureau) -->
+    <header id="mobile-topbar" class="lg:hidden hidden sticky top-0 z-30 bg-[#111318]/95 backdrop-blur-md border-b border-[#30323A] px-4 py-3 items-center justify-between">
+      <div class="flex items-center gap-3">
+        <button type="button" id="mobile-sidebar-btn" class="p-2 border border-[#30323A] bg-[#17191F] text-[#F2F0EC]" aria-label="Open Navigation">
+          <i data-lucide="menu" class="w-4 h-4"></i>
+        </button>
+        <div class="font-serif text-xl font-bold tracking-[0.18em] text-[#F2F0EC]">MYSTERIA</div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span id="mob-rank" class="text-[10px] font-mono px-2 py-1 border border-[#791C2A] bg-[#791C2A]/20 text-[#F2F0EC]">Sleuth</span>
+        <button type="button" id="audio-toggle-mob" class="p-2 border border-[#30323A] bg-[#17191F] text-[#92949D]" aria-label="Toggle Audio">
+          <i data-lucide="volume-x" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Sidebar Backdrop (Mobile) -->
+    <div id="sidebar-backdrop" class="fixed inset-0 bg-black/70 z-40 hidden lg:hidden"></div>
+
+    <!-- Collapsible Left Sidebar (Bureau Command) -->
+    <aside id="main-header" class="fixed lg:sticky top-0 left-0 z-50 h-screen w-64 shrink-0 bg-[#111318] border-r border-[#30323A] flex flex-col justify-between transform -translate-x-full lg:translate-x-0 transition-transform duration-200 hidden">
+      <div>
+        <div class="p-5 border-b border-[#30323A] flex items-center justify-between">
+          <button type="button" id="brand-home-btn" class="flex items-center gap-3 text-left">
+            <div class="w-9 h-9 border border-[#B51F32]/70 bg-[#791C2A]/25 flex items-center justify-center">
+              <i data-lucide="eye" class="w-4 h-4 text-[#B51F32]"></i>
+            </div>
+            <div>
+              <div class="font-serif text-xl font-bold tracking-[0.16em] text-[#F2F0EC] leading-none">MYSTERIA</div>
+              <div class="text-[10px] font-mono text-[#92949D] mt-1">CASE BUREAU</div>
+            </div>
+          </button>
+          <button type="button" id="close-sidebar-btn" class="lg:hidden p-1.5 text-[#92949D] hover:text-white" aria-label="Close Menu">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <div class="p-4 border-b border-[#30323A]">
+          <div class="text-[10px] font-mono uppercase tracking-widest text-[#92949D]">Investigator Rank</div>
+          <div id="hdr-rank" class="font-serif text-lg font-bold text-[#F2F0EC] mt-0.5">Junior Sleuth</div>
+        </div>
+
+        <nav class="p-3 space-y-1">
+          <button type="button" data-screen="dashboard" class="nav-link w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-medium tracking-wide border border-transparent">
+            <i data-lucide="layout-grid" class="w-4 h-4"></i> Bureau Command
+          </button>
+          <button type="button" data-screen="setup" class="nav-link w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-medium tracking-wide border border-transparent">
+            <i data-lucide="folder-plus" class="w-4 h-4"></i> New Investigation
+          </button>
+          <button type="button" data-screen="workspace" id="nav-workspace-btn" class="nav-link w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-medium tracking-wide border border-transparent hidden">
+            <i data-lucide="briefcase" class="w-4 h-4 text-[#B51F32]"></i> Active Case
+          </button>
+          <button type="button" data-screen="history" class="nav-link w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-medium tracking-wide border border-transparent">
+            <i data-lucide="archive" class="w-4 h-4"></i> Case Archive
+          </button>
+          <button type="button" data-screen="settings" class="nav-link w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-medium tracking-wide border border-transparent">
+            <i data-lucide="sliders-horizontal" class="w-4 h-4"></i> Settings
+          </button>
+        </nav>
+      </div>
+
+      <div class="p-4 border-t border-[#30323A] flex items-center justify-between">
+        <span class="text-[11px] font-mono text-[#92949D]">Ambient Rain</span>
+        <button type="button" id="audio-toggle-btn" class="p-2 border border-[#30323A] bg-[#17191F] hover:border-[#B51F32] text-[#92949D] hover:text-[#F2F0EC]" aria-label="Toggle Atmospheric Audio">
+          <i data-lucide="volume-x" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Viewport -->
+    <main class="flex-1 min-w-0 px-4 sm:px-6 lg:px-10 py-6 sm:py-8 max-w-7xl w-full mx-auto">
+      <!-- SCREEN 1: CINEMATIC LANDING PAGE -->
+      <section id="screen-landing" class="app-screen hidden min-h-[85vh] flex flex-col justify-center items-center text-center space-y-10 cinematic-enter">
+        <div class="max-w-3xl space-y-6">
+          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 border border-[#791C2A] bg-[#791C2A]/20 text-[11px] font-mono tracking-[0.2em] text-[#F2F0EC] uppercase">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#B51F32] animate-pulse"></span>
+            MYSTERIA CORE • AAA Noir Investigation Bureau
+          </div>
+          <h2 class="font-serif text-5xl sm:text-7xl font-bold text-[#F2F0EC] leading-[1.08] tracking-tight">
+            Every clue has a secret.<br />
+            <span class="text-[#B51F32] italic">Every secret has a truth.</span>
+          </h2>
+          <p class="text-sm sm:text-base text-[#92949D] max-w-xl mx-auto leading-relaxed">
+            Enter a cinematic detective bureau. Inspect crime scenes, pin forensic evidence to the investigation wall, expose contradictions in the interrogation room, and prove your deduction.
+          </p>
+          <div class="flex flex-wrap items-center justify-center gap-3.5 pt-2">
+            <button type="button" id="landing-start-btn" class="px-8 py-4 bg-[#B51F32] hover:bg-[#991b2b] text-[#F2F0EC] text-xs font-semibold uppercase tracking-[0.18em] border border-[#B51F32] blood-glow transition-all">
+              Start Investigation
+            </button>
+            <button type="button" id="landing-daily-btn" class="px-8 py-4 bg-[#17191F] hover:bg-[#20232B] text-[#F2F0EC] text-xs font-semibold uppercase tracking-[0.18em] border border-[#30323A] transition-all">
+              Play Daily Mystery
+            </button>
+          </div>
+        </div>
+
+        <!-- Landing Footer Preview Strip (Profile + Recent Cases + Core Pillars) -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl w-full text-left pt-4">
+          <div class="noir-panel p-5 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-mono uppercase tracking-widest text-[#B51F32]">Investigator Profile</span>
+              <i data-lucide="shield-alert" class="w-4 h-4 text-[#B51F32]"></i>
+            </div>
+            <div id="land-rank" class="font-serif text-2xl font-bold text-[#F2F0EC]">Junior Sleuth</div>
+            <div id="land-stats" class="text-xs font-mono text-[#92949D]">0 Solved • 0 XP</div>
+          </div>
+          <div class="noir-panel p-5 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-mono uppercase tracking-widest text-[#B51F32]">Evidence Wall</span>
+              <i data-lucide="network" class="w-4 h-4 text-[#B51F32]"></i>
+            </div>
+            <div class="font-serif text-2xl font-bold text-[#F2F0EC]">Zoom & Red Thread</div>
+            <p class="text-xs text-[#92949D]">Drag forensic photos, inspect clues, and link alibi contradictions.</p>
+          </div>
+          <div class="noir-panel p-5 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-mono uppercase tracking-widest text-[#B51F32]">Recent Dossiers</span>
+              <i data-lucide="file-text" class="w-4 h-4 text-[#B51F32]"></i>
+            </div>
+            <div id="land-recent" class="text-xs text-[#92949D] leading-relaxed">No closed cases yet. Open your first dossier to begin.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 2: INVESTIGATOR DASHBOARD -->
+      <section id="screen-dashboard" class="app-screen hidden space-y-6 cinematic-enter">
+        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[#30323A] pb-5">
+          <div>
+            <div class="text-[11px] font-mono text-[#B51F32] uppercase tracking-[0.2em]">Command Center</div>
+            <h2 class="font-serif text-4xl font-bold text-[#F2F0EC] mt-1">Bureau Overview</h2>
+          </div>
+          <div class="flex flex-wrap gap-2.5">
+            <button type="button" id="dash-daily-btn" class="px-4 py-2.5 bg-[#17191F] hover:bg-[#20232B] border border-[#30323A] text-xs font-semibold uppercase tracking-wider">Daily Case</button>
+            <button type="button" id="dash-new-btn" class="px-5 py-2.5 bg-[#B51F32] hover:bg-[#991b2b] text-[#F2F0EC] text-xs font-semibold uppercase tracking-wider blood-glow">+ Open New Case</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="noir-panel p-5">
+            <div class="text-[10px] font-mono text-[#92949D] uppercase tracking-wider">Detective Rank</div>
+            <div id="stat-rank" class="font-serif text-2xl font-bold text-[#F2F0EC] mt-1">Junior Sleuth</div>
+            <div id="stat-xp" class="text-xs text-[#B51F32] font-mono mt-1">0 XP</div>
+          </div>
+          <div class="noir-panel p-5">
+            <div class="text-[10px] font-mono text-[#92949D] uppercase tracking-wider">Cases Solved</div>
+            <div id="stat-solved" class="font-serif text-3xl font-bold text-[#F2F0EC] mt-1">0</div>
+            <div id="stat-total" class="text-xs text-[#92949D] mt-1">0 Total Attempted</div>
+          </div>
+          <div class="noir-panel p-5">
+            <div class="text-[10px] font-mono text-[#92949D] uppercase tracking-wider">Deduction Accuracy</div>
+            <div id="stat-accuracy" class="font-serif text-3xl font-bold text-[#F2F0EC] mt-1">100%</div>
+            <div class="text-xs text-[#92949D] mt-1">Evidence-backed</div>
+          </div>
+          <div class="noir-panel p-5">
+            <div class="text-[10px] font-mono text-[#92949D] uppercase tracking-wider">Hints Used</div>
+            <div id="stat-hints" class="font-serif text-3xl font-bold text-[#F2F0EC] mt-1">0</div>
+            <div class="text-xs text-[#92949D] mt-1">Bureau assistance</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="lg:col-span-2 noir-panel p-5 sm:p-6 space-y-4">
+            <h3 class="font-serif text-2xl font-bold text-[#F2F0EC]">Bureau Commendations</h3>
+            <div id="achievements-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+          </div>
+          <div class="dossier-paper p-5 sm:p-6 flex flex-col justify-between space-y-4">
+            <div>
+              <div class="text-[10px] font-mono text-[#B51F32] uppercase tracking-[0.2em]">Active Assignment</div>
+              <div id="dash-active-summary" class="mt-2.5 text-sm text-[#F2F0EC] leading-relaxed">No active case open. Launch a new investigation or tackle today's Daily Mystery.</div>
+            </div>
+            <button type="button" id="dash-resume-btn" class="hidden w-full py-3 bg-[#B51F32] hover:bg-[#991b2b] text-[#F2F0EC] text-xs font-semibold uppercase tracking-wider">Resume Investigation →</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 3: NEW INVESTIGATION SETUP -->
+      <section id="screen-setup" class="app-screen hidden space-y-6 cinematic-enter">
+        <div class="border-b border-[#30323A] pb-4">
+          <div class="text-[11px] font-mono text-[#B51F32] uppercase tracking-[0.2em]">Case Briefing Generator</div>
+          <h2 class="font-serif text-4xl font-bold text-[#F2F0EC] mt-1">Configure New Investigation</h2>
+        </div>
+
+        <div class="space-y-3">
+          <h3 class="text-xs font-mono uppercase tracking-wider text-[#92949D]">1. Mystery Category (12 Archetypes)</h3>
+          <div id="category-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+        </div>
+
+        <div class="space-y-3 pt-2">
+          <h3 class="text-xs font-mono uppercase tracking-wider text-[#92949D]">2. Complexity & Difficulty (Levels 1–6)</h3>
+          <div id="difficulty-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+        </div>
+
+        <div class="pt-4 flex justify-end">
+          <button type="button" id="generate-case-btn" class="px-8 py-4 bg-[#B51F32] hover:bg-[#991b2b] text-[#F2F0EC] text-xs font-semibold uppercase tracking-[0.18em] blood-glow">
+            Generate Mystery Dossier →
+          </button>
+        </div>
+      </section>
+
+      <!-- SCREEN 4: ACTIVE INVESTIGATION WORKSPACE -->
+      <section id="screen-workspace" class="app-screen hidden space-y-5 cinematic-enter">
+        <!-- Case Header -->
+        <div class="dossier-paper p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <div class="flex flex-wrap items-center gap-2 text-[11px] font-mono">
+              <span id="ws-case-id" class="px-2.5 py-0.5 bg-[#090A0D] border border-[#791C2A] text-[#B51F32] font-semibold">MYS-0000</span>
+              <span id="ws-category" class="px-2.5 py-0.5 bg-[#20232B] border border-[#30323A] text-[#F2F0EC]">Murder Mystery</span>
+              <span id="ws-difficulty" class="px-2.5 py-0.5 bg-[#20232B] border border-[#30323A] text-amber-300">Detective</span>
+              <span id="ws-timer" class="text-[#92949D] ml-1">00:00</span>
+            </div>
+            <h2 id="ws-title" class="font-serif text-3xl font-bold text-[#F2F0EC] mt-2">Case Title</h2>
+            <p id="ws-location-date" class="text-xs text-[#92949D] mt-0.5"></p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2.5">
+            <button type="button" id="ws-hint-btn" class="px-4 py-2.5 bg-[#20232B] hover:bg-[#30323A] border border-[#30323A] text-xs font-medium flex items-center gap-1.5">
+              <i data-lucide="lightbulb" class="w-3.5 h-3.5 text-amber-400"></i> Dynamic Hint
+            </button>
+            <button type="button" id="ws-deduce-btn" class="px-5 py-2.5 bg-[#B51F32] hover:bg-[#991b2b] text-[#F2F0EC] text-xs font-semibold uppercase tracking-wider blood-glow">
+              Submit Final Deduction
+            </button>
+          </div>
+        </div>
+
+        <!-- Workspace Tabs -->
+        <div class="flex items-center gap-1 overflow-x-auto no-scrollbar border-b border-[#30323A]">
+          <button type="button" data-wstab="casefile" class="ws-tab px-4 py-2.5 text-xs font-semibold whitespace-nowrap">📄 Case File</button>
+          <button type="button" data-wstab="location" class="ws-tab px-4 py-2.5 text-xs font-semibold whitespace-nowrap">🔍 Crime Scene</button>
+          <button type="button" data-wstab="board" class="ws-tab px-4 py-2.5 text-xs font-semibold whitespace-nowrap">📌 Evidence Board</button>
+          <button type="button" data-wstab="suspects" class="ws-tab px-4 py-2.5 text-xs font-semibold whitespace-nowrap">👤 Suspects (<span id="ws-suspect-count">0</span>)</button>
+          <button type="button" data-wstab="interrogation" class="ws-tab px-4 py-2.5 text-xs font-semibold whitespace-nowrap">🎙️ Interrogation</button>
+          <button type="button" data-wstab="timeline" class="ws-tab px-4 py-2.5 text-xs font-semibold whitespace-nowrap">⏱️ Timeline</button>
+        </div>
+
+        <!-- MODULE A: CASE FILE -->
+        <div id="ws-panel-casefile" class="ws-panel dossier-paper p-6 sm:p-8 space-y-6 relative">
+          <div class="flex flex-wrap items-start justify-between gap-4 border-b border-[#30323A] pb-4">
+            <div>
+              <div class="text-[10px] font-mono uppercase tracking-[0.25em] text-[#92949D]">Official Bureau Dossier</div>
+              <h3 class="font-serif text-2xl font-bold text-[#F2F0EC] mt-1">Initial Briefing & Investigation Objectives</h3>
+            </div>
+            <span class="px-3 py-1 border-2 border-[#B51F32]/70 text-[#B51F32] font-mono text-[11px] font-bold tracking-[0.2em] uppercase -rotate-2">CLASSIFIED • ACTIVE</span>
+          </div>
+
+          <p id="ws-summary" class="text-sm text-[#F2F0EC]/90 leading-relaxed whitespace-pre-line"></p>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+            <div class="noir-elevated p-3.5 text-xs"><span class="font-mono text-[#B51F32]">01.</span> Inspect all Crime Scene hotspots</div>
+            <div class="noir-elevated p-3.5 text-xs"><span class="font-mono text-[#B51F32]">02.</span> Cross-examine Suspect Alibis</div>
+            <div class="noir-elevated p-3.5 text-xs"><span class="font-mono text-[#B51F32]">03.</span> Present contradicting proof & deduce</div>
+          </div>
+
+          <div id="ws-hint-box" class="hidden p-4 border border-amber-700/60 bg-amber-950/20 text-xs text-amber-200 leading-relaxed"></div>
+
+          <div class="pt-4 border-t border-[#30323A]">
+            <div class="text-xs font-mono text-[#92949D] uppercase mb-3">Discovered Evidence Archive (<span id="ws-clue-count">0</span>)</div>
+            <div id="ws-archive-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+          </div>
+        </div>
+
+        <!-- MODULE B: LOCATION EXPLORER -->
+        <div id="ws-panel-location" class="ws-panel hidden noir-panel p-6 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 class="font-serif text-2xl font-bold text-[#F2F0EC]">Crime Scene Inspection</h3>
+              <p class="text-xs text-[#92949D]">Click environmental objects to photograph and log physical evidence.</p>
+            </div>
+            <span id="loc-progress" class="text-xs font-mono text-[#B51F32]">0 / 0 Inspected</span>
+          </div>
+          <div id="location-hotspots" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5"></div>
+        </div>
+
+        <!-- MODULE C: EVIDENCE BOARD (VISUAL CENTERPIECE WITH ZOOM/PAN/POLAROIDS/STRINGS) -->
+        <div id="ws-panel-board" class="ws-panel hidden noir-panel p-4 sm:p-5 space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 class="font-serif text-2xl font-bold text-[#F2F0EC]">Investigation Wall</h3>
+              <p class="text-xs text-[#92949D]">Drag evidence photos & suspect cards, pan the wall, zoom, or connect clues with red string.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <button type="button" id="board-zoom-out" class="px-2.5 py-1.5 bg-[#20232B] border border-[#30323A] text-xs font-mono" aria-label="Zoom Out">-</button>
+              <span id="board-zoom-label" class="text-xs font-mono px-2 text-[#92949D]">100%</span>
+              <button type="button" id="board-zoom-in" class="px-2.5 py-1.5 bg-[#20232B] border border-[#30323A] text-xs font-mono" aria-label="Zoom In">+</button>
+              <button type="button" id="board-reset-view" class="px-2.5 py-1.5 bg-[#20232B] border border-[#30323A] text-xs">Reset View</button>
+              <button type="button" id="board-clear-lines-btn" class="px-3 py-1.5 bg-[#791C2A]/30 border border-[#791C2A] text-xs text-[#F2F0EC]">Clear Strings</button>
+            </div>
+          </div>
+
+          <div id="evidence-board-canvas" class="relative w-full h-[460px] sm:h-[520px] cork-wall border border-[#30323A] overflow-hidden cursor-grab">
+            <div id="board-viewport" class="absolute inset-0 origin-top-left">
+              <svg id="board-svg" class="absolute inset-0 w-[1600px] h-[1000px] pointer-events-none"></svg>
+              <div id="board-cards-layer" class="absolute inset-0 w-[1600px] h-[1000px]"></div>
+            </div>
+          </div>
+
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input id="board-note-input" type="text" placeholder="Write a handwritten case note to pin on the wall..." class="flex-1 px-3.5 py-2.5 bg-[#111318] border border-[#30323A] text-xs text-[#F2F0EC] focus:outline-none focus:border-[#B51F32]" />
+            <button type="button" id="board-add-note-btn" class="px-5 py-2.5 bg-[#20232B] hover:bg-[#30323A] border border-[#30323A] text-xs font-semibold">Pin Note</button>
+          </div>
+          <div id="board-notes-list" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <!-- MODULE D: SUSPECT PROFILES -->
+        <div id="ws-panel-suspects" class="ws-panel hidden grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+        <!-- MODULE E: INTERROGATION ROOM -->
+        <div id="ws-panel-interrogation" class="ws-panel hidden grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div class="noir-panel p-4 space-y-4">
+            <div>
+              <div class="text-[10px] font-mono uppercase tracking-widest text-[#92949D] mb-2">Subject Under Questioning</div>
+              <div id="interr-suspect-list" class="space-y-2"></div>
+            </div>
+            <div class="pt-3 border-t border-[#30323A]">
+              <div class="text-[10px] font-mono uppercase tracking-widest text-[#92949D] mb-2">Present Physical Evidence</div>
+              <div id="interr-evidence-list" class="space-y-1.5 max-h-48 overflow-y-auto no-scrollbar"></div>
+            </div>
+          </div>
+
+          <div class="lg:col-span-2 noir-panel p-4 sm:p-5 flex flex-col h-[500px]">
+            <div id="interr-header" class="pb-3 border-b border-[#30323A] flex items-center justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <div id="interr-active-portrait" class="w-11 h-11 border border-[#30323A] bg-[#20232B] shrink-0 overflow-hidden"></div>
+                <div>
+                  <div id="interr-active-name" class="font-serif text-xl font-bold text-[#F2F0EC]">Interrogation Transcript</div>
+                  <div id="interr-active-role" class="text-[11px] font-mono text-[#92949D]">Select a subject</div>
+                </div>
+              </div>
+              <span id="interr-contradiction-badge" class="hidden px-2.5 py-1 bg-[#B51F32]/25 border border-[#B51F32] text-[10px] font-mono text-[#F2F0EC] uppercase">Contradiction Exposed</span>
+            </div>
+
+            <div id="interr-chat" class="flex-1 overflow-y-auto py-4 space-y-3 no-scrollbar text-xs"></div>
+
+            <div class="flex flex-wrap gap-1.5 pb-2.5" id="interr-quick-qs">
+              <button type="button" data-q="alibi" class="quick-q px-3 py-1.5 bg-[#20232B] border border-[#30323A] hover:border-[#B51F32] text-[11px]">Verify Alibi</button>
+              <button type="button" data-q="motive" class="quick-q px-3 py-1.5 bg-[#20232B] border border-[#30323A] hover:border-[#B51F32] text-[11px]">Probe Motive</button>
+              <button type="button" data-q="others" class="quick-q px-3 py-1.5 bg-[#20232B] border border-[#30323A] hover:border-[#B51F32] text-[11px]">Ask About Others</button>
+            </div>
+            <form id="interr-form" class="flex gap-2 pt-2.5 border-t border-[#30323A]">
+              <input id="interr-input" type="text" required placeholder="Ask a custom interrogation question..." class="flex-1 px-3.5 py-2.5 bg-[#111318] border border-[#30323A] text-xs text-[#F2F0EC] focus:outline-none focus:border-[#B51F32]" />
+              <button type="submit" class="px-5 py-2.5 bg-[#B51F32] hover:bg-[#991b2b] text-[#F2F0EC] text-xs font-semibold">Ask</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- MODULE F: TIMELINE ANALYZER -->
+        <div id="ws-panel-timeline" class="ws-panel hidden noir-panel p-6 space-y-4">
+          <div>
+            <h3 class="font-serif text-2xl font-bold text-[#F2F0EC]">Chronological Timeline Analyzer</h3>
+            <p class="text-xs text-[#92949D]">Compare verified sensor timestamps against suspect statements.</p>
+          </div>
+          <div id="timeline-events" class="space-y-3 border-l-2 border-[#791C2A] pl-4 ml-2"></div>
+        </div>
+      </section>
+
+      <!-- SCREEN 5: FINAL DEDUCTION -->
+      <section id="screen-deduction" class="app-screen hidden max-w-3xl mx-auto dossier-paper p-6 sm:p-8 space-y-5 cinematic-enter">
+        <div>
+          <div class="text-[11px] font-mono text-[#B51F32] uppercase tracking-[0.2em]">Final Bureau Submission</div>
+          <h2 class="font-serif text-4xl font-bold text-[#F2F0EC] mt-1">Present Your Deduction</h2>
+          <p class="text-xs text-[#92949D] mt-1">Prove the culprit, underlying motive, and contradicting forensic evidence.</p>
+        </div>
+        <form id="deduction-form" class="space-y-4">
+          <div>
+            <label for="ded-culprit" class="block text-xs font-mono uppercase text-[#92949D] mb-1.5">Primary Culprit</label>
+            <select id="ded-culprit" class="w-full px-3.5 py-2.5 bg-[#111318] border border-[#30323A] text-sm text-[#F2F0EC]"></select>
+          </div>
+          <div>
+            <label for="ded-motive" class="block text-xs font-mono uppercase text-[#92949D] mb-1.5">Underlying Motive</label>
+            <select id="ded-motive" class="w-full px-3.5 py-2.5 bg-[#111318] border border-[#30323A] text-sm text-[#F2F0EC]"></select>
+          </div>
+          <div>
+            <label for="ded-evidence" class="block text-xs font-mono uppercase text-[#92949D] mb-1.5">Key Contradicting Evidence</label>
+            <select id="ded-evidence" class="w-full px-3.5 py-2.5 bg-[#111318] border border-[#30323A] text-sm text-[#F2F0EC]"></select>
+          </div>
+          <div>
+            <label for="ded-notes" class="block text-xs font-mono uppercase text-[#92949D] mb-1.5">Closing Argument</label>
+            <textarea id="ded-notes" rows="3" required placeholder="Explain how the evidence contradicts the culprit's alibi..." class="w-full px-3.5 py-2.5 bg-[#111318] border border-[#30323A] text-xs text-[#F2F0EC]"></textarea>
+          </div>
+          <div class="flex justify-between pt-2">
+            <button type="button" id="ded-back-btn" class="px-5 py-2.5 bg-[#20232B] border border-[#30323A] text-xs font-semibold">← Return to Case</button>
+            <button type="submit" class="px-6 py-2.5 bg-[#B51F32] hover:bg-[#991b2b] text-[#F2F0EC] text-xs font-semibold uppercase tracking-wider blood-glow">Lock In Verdict</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- SCREEN 6: CASE SOLVED / FAILED -->
+      <section id="screen-result" class="app-screen hidden max-w-3xl mx-auto noir-panel p-6 sm:p-8 space-y-5 cinematic-enter">
+        <div id="result-badge" class="inline-block px-3 py-1 text-xs font-mono uppercase border"></div>
+        <h2 id="result-title" class="font-serif text-4xl font-bold text-[#F2F0EC]"></h2>
+        <div class="grid grid-cols-3 gap-3 text-center">
+          <div class="p-3.5 bg-[#111318] border border-[#30323A]"><div class="text-[10px] font-mono text-[#92949D]">ACCURACY</div><div id="res-acc" class="text-xl font-bold text-[#F2F0EC]">0%</div></div>
+          <div class="p-3.5 bg-[#111318] border border-[#30323A]"><div class="text-[10px] font-mono text-[#92949D]">XP EARNED</div><div id="res-xp" class="text-xl font-bold text-[#B51F32]">+0</div></div>
+          <div class="p-3.5 bg-[#111318] border border-[#30323A]"><div class="text-[10px] font-mono text-[#92949D]">TIME</div><div id="res-time" class="text-xl font-bold text-[#F2F0EC]">00:00</div></div>
+        </div>
+        <div class="p-4 bg-[#111318] border border-[#30323A] space-y-2 text-xs leading-relaxed text-[#F2F0EC]/90">
+          <div class="font-mono text-[#B51F32] uppercase text-[11px]">The Underlying Truth & Twist</div>
+          <p id="res-truth-text"></p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <button type="button" id="res-dash-btn" class="px-5 py-2.5 bg-[#20232B] border border-[#30323A] text-xs font-semibold">Bureau Command</button>
+          <button type="button" id="res-new-btn" class="px-5 py-2.5 bg-[#B51F32] hover:bg-[#991b2b] text-[#F2F0EC] text-xs font-semibold">Investigate Another Case</button>
+        </div>
+      </section>
+
+      <!-- SCREEN 7: CASE ARCHIVE -->
+      <section id="screen-history" class="app-screen hidden space-y-5 cinematic-enter">
+        <div class="border-b border-[#30323A] pb-4">
+          <h2 class="font-serif text-4xl font-bold text-[#F2F0EC]">Case Archive</h2>
+          <p class="text-xs text-[#92949D] mt-1">Closed Bureau investigations.</p>
+        </div>
+        <div id="history-list" class="space-y-3"></div>
+      </section>
+
+      <!-- SCREEN 8: SETTINGS -->
+      <section id="screen-settings" class="app-screen hidden max-w-2xl mx-auto noir-panel p-6 space-y-5 cinematic-enter">
+        <h2 class="font-serif text-3xl font-bold text-[#F2F0EC]">Bureau Settings</h2>
+        <div class="space-y-4 text-xs">
+          <div class="flex items-center justify-between p-4 bg-[#111318] border border-[#30323A]">
+            <div><div class="font-semibold text-[#F2F0EC]">3D Rainy Noir Atmosphere</div><div class="text-[#92949D]">Three.js particle rain backdrop</div></div>
+            <button type="button" id="set-rain-btn" class="px-3.5 py-1.5 bg-[#791C2A]/40 border border-[#B51F32] text-[#F2F0EC]">Enabled</button>
+          </div>
+          <div class="flex items-center justify-between p-4 bg-[#111318] border border-[#30323A]">
+            <div><div class="font-semibold text-[#F2F0EC]">Procedural Rain & Noir Audio</div><div class="text-[#92949D]">Synthesized ambient soundscape</div></div>
+            <button type="button" id="set-audio-btn" class="px-3.5 py-1.5 bg-[#20232B] border border-[#30323A]">Muted</button>
+          </div>
+          <div class="p-4 bg-[#111318] border border-[#30323A]">
+            <div class="font-semibold text-[#F2F0EC]">MYSTERIA CORE Engine Status</div>
+            <div id="set-engine-status" class="text-[#92949D] mt-0.5">Truth-First Local & Optional AI Backend Ready</div>
+          </div>
+          <button type="button" id="set-reset-btn" class="px-4 py-2.5 bg-[#111318] hover:bg-[#791C2A]/30 border border-[#791C2A] text-[#F2F0EC] text-xs">Reset Investigator Progress</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Evidence Inspection Modal -->
+  <div id="evidence-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="noir-panel max-w-md w-full p-6 space-y-4 cinematic-enter">
+      <div class="flex items-center justify-between border-b border-[#30323A] pb-3">
+        <span id="ev-modal-cat" class="text-[10px] font-mono uppercase tracking-widest text-[#B51F32]">FORENSICS</span>
+        <button type="button" id="ev-modal-close" class="p-1 text-[#92949D] hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <div id="ev-modal-art" class="w-full h-36 bg-[#111318] border border-[#30323A] flex items-center justify-center"></div>
+      <h3 id="ev-modal-title" class="font-serif text-2xl font-bold text-[#F2F0EC]"></h3>
+      <p id="ev-modal-desc" class="text-xs text-[#92949D] leading-relaxed"></p>
+    </div>
+  </div>
+
+  <div id="toast-box" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+
+  <script>
+    // ---------- NOIR PORTRAIT & EVIDENCE PHOTO SVG GENERATORS ----------
+    function getPortraitSVG(color, idx) {
+      const hats = idx % 2 === 0;
+      const glasses = idx % 3 === 1;
+      return `<svg viewBox="0 0 80 80" class="w-full h-full">
+        <defs><linearGradient id="pg${idx}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${color}"/><stop offset="100%" stop-color="#090A0D"/></linearGradient></defs>
+        <rect width="80" height="80" fill="url(#pg${idx})"/>
+        <path d="M16 80 C16 58 64 58 64 80" fill="#17191F"/>
+        <circle cx="40" cy="34" r="14" fill="#d6d3d1"/>
+        ${hats ? '<rect x="22" y="18" width="36" height="4" fill="#090A0D"/><rect x="28" y="9" width="24" height="10" fill="#17191F"/>' : '<path d="M26 32 C26 18 54 18 54 32" fill="#17191F"/>'}
+        ${glasses ? '<rect x="29" y="31" width="9" height="5" fill="none" stroke="#090A0D" stroke-width="1.5"/><rect x="42" y="31" width="9" height="5" fill="none" stroke="#090A0D" stroke-width="1.5"/>' : '<circle cx="35" cy="33" r="1.5" fill="#090A0D"/><circle cx="45" cy="33" r="1.5" fill="#090A0D"/>'}
+        <line x1="36" y1="41" x2="44" y2="41" stroke="#090A0D" stroke-width="1.5"/>
+      </svg>`;
+    }
+
+    function getEvidencePhotoSVG(cat) {
+      if (cat === 'Physical Forensics') {
+        return `<svg viewBox="0 0 120 70" class="w-full h-full"><rect width="120" height="70" fill="#090A0D"/><circle cx="60" cy="35" r="18" fill="none" stroke="#B51F32" stroke-width="2"/><line x1="60" y1="35" x2="60" y2="22" stroke="#F2F0EC" stroke-width="2"/><line x1="60" y1="35" x2="70" y2="40" stroke="#F2F0EC" stroke-width="1.5"/><text x="10" y="62" font-size="7" fill="#92949D" font-family="monospace">EXHIBIT #A1 • TIMESTAMP</text></svg>`;
+      }
+      if (cat === 'Documentary') {
+        return `<svg viewBox="0 0 120 70" class="w-full h-full"><rect width="120" height="70" fill="#111318"/><rect x="30" y="10" width="60" height="46" fill="#20232B" stroke="#30323A"/><line x1="38" y1="22" x2="80" y2="22" stroke="#92949D" stroke-width="2"/><line x1="38" y1="31" x2="74" y2="31" stroke="#92949D" stroke-width="2"/><line x1="38" y1="40" x2="64" y2="40" stroke="#B51F32" stroke-width="2"/></svg>`;
+      }
+      return `<svg viewBox="0 0 120 70" class="w-full h-full"><rect width="120" height="70" fill="#111318"/><polygon points="60,14 90,54 30,54" fill="none" stroke="#92949D" stroke-width="2"/><text x="60" y="47" font-size="14" fill="#B51F32" text-anchor="middle" font-weight="bold">!</text></svg>`;
+    }
+
+    // ---------- 1. THREE.JS RAIN ----------
+    let rainEnabled = true, rainCleanup = null;
+    function initRain3D() {
+      const container = document.getElementById('rain-bg');
+      container.innerHTML = '';
+      if (!rainEnabled || !window.THREE) return;
+      try {
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);
+        camera.position.z = 1; camera.rotation.x = 1.16; camera.rotation.y = -0.12; camera.rotation.z = 0.27;
+        const renderer = new THREE.WebGLRenderer({ alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(renderer.domElement);
+
+        const count = window.innerWidth < 640 ? 850 : 2000;
+        const pos = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) { pos[i * 3] = Math.random() * 400 - 200; pos[i * 3 + 1] = Math.random() * 500 - 250; pos[i * 3 + 2] = Math.random() * 400 - 200; }
+        const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        const rain = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0x92949D, size: 0.42, transparent: true, opacity: 0.45 }));
+        scene.add(rain);
+
+        let raf = null;
+        const animate = () => {
+          if (!rainEnabled) return;
+          const arr = geo.attributes.position.array;
+          for (let i = 0; i < count; i++) { arr[i * 3 + 1] -= 0.72; if (arr[i * 3 + 1] < -200) arr[i * 3 + 1] = 200; }
+          geo.attributes.position.needsUpdate = true;
+          renderer.render(scene, camera);
+          raf = requestAnimationFrame(animate);
+        };
+        animate();
+        rainCleanup = () => { cancelAnimationFrame(raf); renderer.dispose(); };
+      } catch (e) {}
+    }
+
+    // ---------- 2. AMBIENT AUDIO ----------
+    let audioCtx = null, noiseNode = null, audioOn = false;
+    function toggleAmbientAudio() {
+      try {
+        if (!audioOn) {
+          if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          if (audioCtx.state === 'suspended') audioCtx.resume();
+          const bufSize = audioCtx.sampleRate * 2, buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+          const data = buf.getChannelData(0);
+          for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * 0.04;
+          noiseNode = audioCtx.createBufferSource(); noiseNode.buffer = buf; noiseNode.loop = true;
+          const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 650;
+          noiseNode.connect(filter); filter.connect(audioCtx.destination); noiseNode.start();
+          audioOn = true;
+        } else {
+          if (noiseNode) { noiseNode.stop(); noiseNode.disconnect(); noiseNode = null; }
+          audioOn = false;
+        }
+      } catch (e) {}
+      document.getElementById('set-audio-btn').textContent = audioOn ? 'Active' : 'Muted';
+      ['audio-toggle-btn', 'audio-toggle-mob'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = `<i data-lucide="${audioOn ? 'volume-2' : 'volume-x'}" class="w-4 h-4"></i>`;
+      });
+      if (window.lucide) lucide.createIcons();
+    }
+
+    // ---------- 3. MYSTERIA CORE (PRESERVED ENGINE) ----------
+    const CATEGORIES = [
+      { id: 'murder', name: 'Murder Mystery', loc: 'Blackwood Manor Study', tone: 'Classic whodunit with concealed motives.' },
+      { id: 'missing', name: 'Missing Person', loc: 'Pier 14 Foggy Warehouse', tone: 'Vanished without trace before midnight.' },
+      { id: 'locked', name: 'Locked Room', loc: 'The Obsidian Vault', tone: 'Sealed from within—impossible exit.' },
+      { id: 'psych', name: 'Psychological', loc: 'St. Jude Sanatorium Wing', tone: 'Unreliable memories & gaslighting.' },
+      { id: 'hist', name: 'Historical Mystery', loc: '1924 Royal Museum Archive', tone: 'Centuries-old cipher & betrayal.' },
+      { id: 'corp', name: 'Corporate Conspiracy', loc: 'Vanguard Biotech 42nd Floor', tone: 'Whistleblower silenced before audit.' },
+      { id: 'identity', name: 'Secret Identity', loc: 'Grand Opera Backstage', tone: 'Someone here is living a stolen name.' },
+      { id: 'theft', name: 'Theft Investigation', loc: 'Sovereign Diamond Gallery', tone: 'High-stakes heist with inside help.' },
+      { id: 'paranormal', name: 'Paranormal Mystery', loc: 'Ravenscroft Lighthouse', tone: 'Staged haunting masking cold logic.' },
+      { id: 'espionage', name: 'Espionage Case', loc: 'Diplomatic Embassy Annex', tone: 'Leaked cipher & double agents.' },
+      { id: 'time', name: 'Time-Based Mystery', loc: 'Chronos Observatory', tone: 'Tampered clocks & shifted alibis.' },
+      { id: 'conspiracy', name: 'Multi-Layered Conspiracy', loc: 'City Hall Sub-Basement', tone: 'Three factions, one master architect.' }
+    ];
+
+    const DIFFICULTIES = [
+      { lvl: 1, name: 'Rookie', suspects: 3, herrings: 0, hints: 4, xpMult: 1, desc: '3 suspects, clear contradictions, 4 hints.' },
+      { lvl: 2, name: 'Detective', suspects: 4, herrings: 1, hints: 3, xpMult: 1.4, desc: '4 suspects, 1 red herring, 3 hints.' },
+      { lvl: 3, name: 'Expert', suspects: 4, herrings: 2, hints: 2, xpMult: 1.8, desc: '4 suspects, conflicting timelines, 2 hints.' },
+      { lvl: 4, name: 'Master Detective', suspects: 5, herrings: 2, hints: 2, xpMult: 2.3, desc: '5 suspects, deep motives, 2 hints.' },
+      { lvl: 5, name: 'Genius', suspects: 5, herrings: 3, hints: 1, xpMult: 3, desc: '5 suspects, unreliable witnesses, 1 hint.' },
+      { lvl: 6, name: 'Nightmare', suspects: 6, herrings: 4, hints: 1, xpMult: 4, desc: '6 suspects, multi-layer twist, 1 hint.' }
+    ];
+
+    const SUSPECT_POOL = [
+      { name: 'Dr. Evelyn Vance', role: 'Chief Archivist', bg: 'Passed over for director twice; holds master key.', color: '#791C2A' },
+      { name: 'Julian Mercer', role: 'Financial Auditor', bg: 'Recently flagged for offshore discrepancies.', color: '#1e3a8a' },
+      { name: 'Clara Sterling', role: 'Private Secretary', bg: 'Managed confidential correspondence for 8 years.', color: '#581c87' },
+      { name: 'Victor Thorne', role: 'Head of Security', bg: 'Former intelligence officer with override codes.', color: '#065f46' },
+      { name: 'Marcus Hale', role: 'Heir & Investor', bg: 'Deeply indebted to underground creditors.', color: '#78350f' },
+      { name: 'Helena Novak', role: 'Restorer & Chemist', bg: 'Expert in solvents, inks, and silent toxins.', color: '#312e81' }
+    ];
+
+    const MOTIVES = [
+      'Concealment of systemic embezzlement before the morning audit',
+      'Retaliation over a stolen patent and ruined academic legacy',
+      'Blackmail prevention regarding a fabricated past identity',
+      'Securing sole inheritance by eliminating the final witness'
+    ];
+
+    function buildCaseLocal(catId, diffLvl, seedOverride = null) {
+      const cat = CATEGORIES.find(c => c.id === catId) || CATEGORIES[0];
+      const diff = DIFFICULTIES.find(d => d.lvl === diffLvl) || DIFFICULTIES[1];
+      const rng = seedOverride !== null ? () => ((seedOverride = (seedOverride * 9301 + 49297) % 233280) / 233280) : Math.random;
+
+      const shuffled = [...SUSPECT_POOL].sort(() => rng() - 0.5).slice(0, diff.suspects);
+      const culpritIdx = Math.floor(rng() * shuffled.length);
+      const motive = MOTIVES[Math.floor(rng() * MOTIVES.length)];
+      const criticalTime = ['11:15 PM', '11:40 PM', '12:05 AM'][Math.floor(rng() * 3)];
+
+      const suspects = shuffled.map((s, idx) => {
+        const isCulprit = idx === culpritIdx;
+        return {
+          id: `s-${idx}`, name: s.name, role: s.role, background: s.bg, color: s.color, idx,
+          motiveHint: isCulprit ? motive : 'Personal friction with the victim, though lacks direct gain.',
+          alibi: isCulprit
+            ? `Claims to have remained locked inside the East Wing Lounge from 10:45 PM until midnight.`
+            : `Verified in the Courtyard Atrium with security log #${200 + idx} during ${criticalTime}.`,
+          behavior: isCulprit ? 'Guarded when asked about timestamps; avoids eye contact.' : 'Cooperative, though defensive about personal secrets.',
+          contradictionExposed: false
+        };
+      });
+
+      const culprit = suspects[culpritIdx];
+      const keyClue = {
+        id: 'ev-key', title: `Shattered Watch & Keycard Log (${criticalTime})`,
+        desc: `Digital badge belonging to ${culprit.name} pinged the ${cat.loc} door at ${criticalTime}, directly contradicting their East Wing alibi.`,
+        category: 'Physical Forensics', isKey: true, discovered: false, x: 48, y: 48
+      };
+      const motiveClue = {
+        id: 'ev-motive', title: 'Encrypted Ledger Fragment',
+        desc: `Recovered shred pointing toward: "${motive}".`,
+        category: 'Documentary', isKey: false, discovered: false, x: 300, y: 65
+      };
+      const herringClues = Array.from({ length: Math.max(1, diff.herrings) }, (_, i) => ({
+        id: `ev-red-${i}`, title: `Misleading Note #${i + 1}`,
+        desc: `A smudged appointment slip mentioning ${suspects[(culpritIdx + i + 1) % suspects.length].name} at 09:00 PM (prior to incident).`,
+        category: 'Red Herring', isKey: false, discovered: false, x: 80 + i * 210, y: 230
+      }));
+
+      const allClues = [keyClue, motiveClue, ...herringClues];
+      const hotspots = [
+        { id: 'hs-1', label: 'Victim’s Mahogany Desk', clueId: 'ev-key', inspected: false },
+        { id: 'hs-2', label: 'Fireplace Ash & Shredder', clueId: 'ev-motive', inspected: false },
+        ...herringClues.map((hc, i) => ({ id: `hs-h-${i}`, label: ['Coat Rack Pocket', 'Sideboard Tray', 'Broken Security Panel', 'Window Latch'][i % 4], clueId: hc.id, inspected: false }))
+      ];
+
+      const timeline = [
+        { time: '09:00 PM', event: `Victim meets briefly with ${suspects[(culpritIdx + 1) % suspects.length].name}.`, conflict: false },
+        { time: '10:45 PM', event: `${culprit.name} claims to enter East Wing Lounge alone.`, conflict: false },
+        { time: criticalTime, event: `Incident occurs at ${cat.loc}. Door sensor records unauthorized entry.`, conflict: true },
+        { time: '12:20 AM', event: `Night watchman discovers the scene and seals the perimeter.`, conflict: false }
+      ];
+
+      const twist = `While ${suspects[(culpritIdx + 1) % suspects.length].name} appeared suspicious due to the 09:00 PM meeting, ${culprit.name} deliberately staged the scene and used an override badge at ${criticalTime} to cover up ${motive.toLowerCase()}.`;
+
+      return {
+        caseId: `MYS-${Math.floor(1000 + rng() * 9000)}`,
+        title: `The ${cat.name} of ${cat.loc}`,
+        category: cat.name, difficulty: diff, location: cat.loc, dateStr: 'November 25, 2026 • 11:45 PM',
+        summary: `At ${cat.loc}, an urgent distress call brought Bureau investigators into a web of silence. ${cat.tone}\n\nInitial sweeps confirm the incident occurred around ${criticalTime}. All ${suspects.length} persons of interest remain on-site. Inspect the scene, uncover contradictions, and expose the truth.`,
+        suspects, clues: allClues, hotspots, timeline,
+        truth: { culpritId: culprit.id, culpritName: culprit.name, motive, keyClueId: keyClue.id, twist },
+        hintsLeft: diff.hints, hintsUsed: 0, notes: [], threads: []
+      };
+    }
+
+    // ---------- 4. STATE & PERSISTENCE ----------
+    let state = {
+      xp: 0, solved: 0, attempted: 0, totalHints: 0, history: [],
+      selectedCategory: 'murder', selectedDiff: 2, activeCase: null,
+      selectedSuspectId: null, linkSourceId: null, caseSeconds: 0, timerId: null,
+      boardZoom: 1, boardPanX: 0, boardPanY: 0
+    };
+    try { const saved = JSON.parse(localStorage.getItem('mysteria_save') || 'null'); if (saved) Object.assign(state, saved); } catch (e) {}
+
+    function saveState() {
+      try {
+        localStorage.setItem('mysteria_save', JSON.stringify({
+          xp: state.xp, solved: state.solved, attempted: state.attempted, totalHints: state.totalHints, history: state.history
+        }));
+      } catch (e) {}
+    }
+
+    function getRank(xp) {
+      if (xp >= 2500) return 'Master Inquisitor';
+      if (xp >= 1200) return 'Chief Inspector';
+      if (xp >= 500) return 'Senior Detective';
+      if (xp >= 150) return 'Field Investigator';
+      return 'Junior Sleuth';
+    }
+
+    function toast(msg) {
+      const el = document.createElement('div');
+      el.className = 'px-4 py-2.5 bg-[#17191F] border border-[#B51F32] text-[#F2F0EC] text-xs font-medium shadow-2xl';
+      el.textContent = msg;
+      document.getElementById('toast-box').appendChild(el);
+      setTimeout(() => el.remove(), 2600);
+    }
+
+    // ---------- 5. NAVIGATION & SIDEBAR ----------
+    function openSidebar() {
+      document.getElementById('main-header').classList.remove('-translate-x-full');
+      document.getElementById('sidebar-backdrop').classList.remove('hidden');
+    }
+    function closeSidebar() {
+      document.getElementById('main-header').classList.add('-translate-x-full');
+      document.getElementById('sidebar-backdrop').classList.add('hidden');
+    }
+
+    function showScreen(name) {
+      document.querySelectorAll('.app-screen').forEach(s => s.classList.add('hidden'));
+      document.getElementById(`screen-${name}`).classList.remove('hidden');
+      const isLand = name === 'landing';
+      document.getElementById('main-header').classList.toggle('hidden', isLand);
+      document.getElementById('mobile-topbar').classList.toggle('hidden', isLand);
+      if (!isLand) document.getElementById('mobile-topbar').classList.add('flex');
+
+      document.querySelectorAll('.nav-link').forEach(btn => {
+        const act = btn.getAttribute('data-screen') === name;
+        btn.className = `nav-link w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-medium tracking-wide border ${act ? 'border-[#B51F32] bg-[#791C2A]/25 text-[#F2F0EC]' : 'border-transparent text-[#92949D] hover:text-[#F2F0EC] hover:bg-[#17191F]'}`;
+      });
+      closeSidebar();
+      if (name === 'landing') renderLandingMeta();
+      if (name === 'dashboard') renderDashboard();
+      if (name === 'history') renderHistory();
+    }
+
+    function renderLandingMeta() {
+      const rank = getRank(state.xp);
+      document.getElementById('land-rank').textContent = rank;
+      document.getElementById('land-stats').textContent = `${state.solved} Solved • ${state.xp} XP`;
+      document.getElementById('land-recent').textContent = state.history.length
+        ? `${state.history[0].id}: ${state.history[0].title} (${state.history[0].solved ? 'SOLVED' : 'FAILED'})`
+        : 'No closed cases yet. Open your first dossier to begin.';
+    }
+
+    function renderDashboard() {
+      const rank = getRank(state.xp);
+      document.getElementById('hdr-rank').textContent = rank;
+      document.getElementById('mob-rank').textContent = rank;
+      document.getElementById('stat-rank').textContent = rank;
+      document.getElementById('stat-xp').textContent = `${state.xp} XP`;
+      document.getElementById('stat-solved').textContent = state.solved;
+      document.getElementById('stat-total').textContent = `${state.attempted} Total Attempted`;
+      const acc = state.attempted ? Math.round((state.solved / state.attempted) * 100) : 100;
+      document.getElementById('stat-accuracy').textContent = `${acc}%`;
+      document.getElementById('stat-hints').textContent = state.totalHints;
+
+      const achs = [
+        { title: 'First Truth Uncovered', desc: 'Solve your first Mystery Case', unlocked: state.solved >= 1 },
+        { title: 'Sharp Instincts', desc: 'Earn 500+ Investigator XP', unlocked: state.xp >= 500 },
+        { title: 'Nightmare Survivor', desc: 'Close 3+ Cases', unlocked: state.solved >= 3 },
+        { title: 'Bureau Veteran', desc: 'Reach Senior Detective Rank', unlocked: state.xp >= 500 }
+      ];
+      const ag = document.getElementById('achievements-grid'); ag.innerHTML = '';
+      achs.forEach(a => {
+        const d = document.createElement('div');
+        d.className = `p-3.5 border ${a.unlocked ? 'border-[#B51F32]/70 bg-[#791C2A]/20' : 'border-[#30323A] bg-[#111318] opacity-55'}`;
+        d.innerHTML = `<div class="text-xs font-bold text-[#F2F0EC]">${a.unlocked ? '★ ' : '○ '}${a.title}</div><div class="text-[11px] text-[#92949D] mt-0.5">${a.desc}</div>`;
+        ag.appendChild(d);
+      });
+
+      const resBtn = document.getElementById('dash-resume-btn');
+      if (state.activeCase) {
+        document.getElementById('dash-active-summary').textContent = `${state.activeCase.caseId}: ${state.activeCase.title} (${state.activeCase.difficulty.name})`;
+        resBtn.classList.remove('hidden');
+      } else {
+        resBtn.classList.add('hidden');
+      }
+    }
+
+    function renderSetup() {
+      const cg = document.getElementById('category-grid'); cg.innerHTML = '';
+      CATEGORIES.forEach(c => {
+        const b = document.createElement('button'); b.type = 'button';
+        const act = state.selectedCategory === c.id;
+        b.className = `p-4 text-left border transition-all ${act ? 'border-[#B51F32] bg-[#791C2A]/25' : 'border-[#30323A] bg-[#17191F] hover:border-[#92949D]'}`;
+        b.innerHTML = `<div class="font-serif text-base font-bold text-[#F2F0EC]">${c.name}</div><div class="text-[11px] font-mono text-[#92949D] mt-1">${c.loc}</div>`;
+        b.addEventListener('click', () => { state.selectedCategory = c.id; renderSetup(); });
+        cg.appendChild(b);
+      });
+
+      const dg = document.getElementById('difficulty-grid'); dg.innerHTML = '';
+      DIFFICULTIES.forEach(d => {
+        const b = document.createElement('button'); b.type = 'button';
+        const act = state.selectedDiff === d.lvl;
+        b.className = `p-4 text-left border transition-all ${act ? 'border-[#B51F32] bg-[#791C2A]/25' : 'border-[#30323A] bg-[#17191F] hover:border-[#92949D]'}`;
+        b.innerHTML = `<div class="flex justify-between text-xs font-bold text-[#F2F0EC]"><span>LVL ${d.lvl} — ${d.name}</span><span class="font-mono text-[#B51F32]">${d.xpMult}x XP</span></div><div class="text-[11px] text-[#92949D] mt-1">${d.desc}</div>`;
+        b.addEventListener('click', () => { state.selectedDiff = d.lvl; renderSetup(); });
+        dg.appendChild(b);
+      });
+    }
+
+    // ---------- 6. WORKSPACE ----------
+    function startCase(c) {
+      state.activeCase = c; state.selectedSuspectId = c.suspects[0].id; state.caseSeconds = 0;
+      state.boardZoom = 1; state.boardPanX = 0; state.boardPanY = 0;
+      if (state.timerId) clearInterval(state.timerId);
+      state.timerId = setInterval(() => {
+        state.caseSeconds++;
+        const m = String(Math.floor(state.caseSeconds / 60)).padStart(2, '0'), s = String(state.caseSeconds % 60).padStart(2, '0');
+        document.getElementById('ws-timer').textContent = `${m}:${s}`;
+      }, 1000);
+
+      document.getElementById('nav-workspace-btn').classList.remove('hidden');
+      document.getElementById('ws-case-id').textContent = c.caseId;
+      document.getElementById('ws-category').textContent = c.category;
+      document.getElementById('ws-difficulty').textContent = c.difficulty.name;
+      document.getElementById('ws-title').textContent = c.title;
+      document.getElementById('ws-location-date').textContent = `${c.location} • ${c.dateStr}`;
+      document.getElementById('ws-summary').textContent = c.summary;
+      document.getElementById('ws-hint-box').classList.add('hidden');
+      document.getElementById('ws-suspect-count').textContent = c.suspects.length;
+
+      showScreen('workspace'); switchWsTab('casefile'); renderWorkspaceAll();
+    }
+
+    function switchWsTab(tab) {
+      document.querySelectorAll('.ws-panel').forEach(p => p.classList.add('hidden'));
+      document.getElementById(`ws-panel-${tab}`).classList.remove('hidden');
+      document.querySelectorAll('.ws-tab').forEach(b => {
+        const act = b.getAttribute('data-wstab') === tab;
+        b.className = `ws-tab px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 ${act ? 'border-[#B51F32] text-[#F2F0EC]' : 'border-transparent text-[#92949D] hover:text-[#F2F0EC]'}`;
+      });
+      if (tab === 'board') renderEvidenceBoard();
+    }
+
+    function openEvidenceModal(cl) {
+      document.getElementById('ev-modal-cat').textContent = cl.category;
+      document.getElementById('ev-modal-art').innerHTML = getEvidencePhotoSVG(cl.category);
+      document.getElementById('ev-modal-title').textContent = cl.title;
+      document.getElementById('ev-modal-desc').textContent = cl.desc;
+      const m = document.getElementById('evidence-modal');
+      m.classList.remove('hidden'); m.classList.add('flex');
+    }
+
+    function renderWorkspaceAll() {
+      const c = state.activeCase; if (!c) return;
+      const discovered = c.clues.filter(x => x.discovered);
+      document.getElementById('ws-clue-count').textContent = discovered.length;
+
+      // Archive
+      const arch = document.getElementById('ws-archive-list'); arch.innerHTML = '';
+      if (!discovered.length) arch.innerHTML = '<div class="text-xs text-[#92949D]">No evidence collected yet. Visit Crime Scene to inspect hotspots.</div>';
+      discovered.forEach(cl => {
+        const d = document.createElement('button'); d.type = 'button';
+        d.className = 'p-3.5 text-left bg-[#111318] border border-[#30323A] hover:border-[#B51F32] text-xs space-y-1.5';
+        d.innerHTML = `<div class="h-14 border border-[#30323A]">${getEvidencePhotoSVG(cl.category)}</div><div class="font-mono text-[10px] text-[#B51F32] uppercase">${cl.category}</div><div class="font-bold text-[#F2F0EC]">${cl.title}</div>`;
+        d.addEventListener('click', () => openEvidenceModal(cl));
+        arch.appendChild(d);
+      });
+
+      // Hotspots
+      const locGrid = document.getElementById('location-hotspots'); locGrid.innerHTML = '';
+      document.getElementById('loc-progress').textContent = `${c.hotspots.filter(h => h.inspected).length} / ${c.hotspots.length} Inspected`;
+      c.hotspots.forEach(h => {
+        const btn = document.createElement('button'); btn.type = 'button';
+        btn.className = `p-4 text-left border transition-all ${h.inspected ? 'border-emerald-800/60 bg-emerald-950/15' : 'border-[#30323A] bg-[#111318] hover:border-[#B51F32]'}`;
+        btn.innerHTML = `<div class="text-[10px] font-mono uppercase ${h.inspected ? 'text-emerald-400' : 'text-[#B51F32]'}">${h.inspected ? 'PHOTOGRAPHED & LOGGED' : 'INSPECT OBJECT'}</div><div class="font-serif text-xl font-bold text-[#F2F0EC] mt-1">${h.label}</div>`;
+        btn.addEventListener('click', () => {
+          if (!h.inspected) {
+            h.inspected = true;
+            const clue = c.clues.find(x => x.id === h.clueId);
+            if (clue) { clue.discovered = true; toast(`Logged Evidence: ${clue.title}`); }
+            renderWorkspaceAll();
+          }
+        });
+        locGrid.appendChild(btn);
+      });
+
+      // Suspect Profiles (Cinematic Dossiers)
+      const susGrid = document.getElementById('ws-panel-suspects'); susGrid.innerHTML = '';
+      c.suspects.forEach(s => {
+        const card = document.createElement('div');
+        card.className = 'noir-panel p-5 flex flex-col sm:flex-row gap-4 items-start';
+        card.innerHTML = `
+          <div class="w-20 h-20 shrink-0 border border-[#30323A] overflow-hidden">${getPortraitSVG(s.color, s.idx)}</div>
+          <div class="space-y-1.5 text-xs flex-1">
+            <div class="flex items-center justify-between gap-2">
+              <div class="font-serif text-2xl font-bold text-[#F2F0EC]">${s.name}</div>
+              <span class="px-2 py-0.5 text-[10px] font-mono border ${s.contradictionExposed ? 'border-[#B51F32] bg-[#B51F32]/20 text-[#F2F0EC]' : 'border-[#30323A] text-[#92949D]'}">${s.contradictionExposed ? 'CONTRADICTION' : 'UNDER REVIEW'}</span>
+            </div>
+            <div class="text-[11px] font-mono text-[#B51F32]">${s.role}</div>
+            <p class="text-[#92949D]">${s.background}</p>
+            <p class="text-[#F2F0EC]/90"><strong class="text-[#F2F0EC]">Alibi:</strong> ${s.alibi}</p>
+            <p class="text-[#92949D] italic">${s.behavior}</p>
+          </div>`;
+        susGrid.appendChild(card);
+      });
+
+      // Interrogation Sidebar + Active Portrait
+      const isl = document.getElementById('interr-suspect-list'); isl.innerHTML = '';
+      c.suspects.forEach(s => {
+        const b = document.createElement('button'); b.type = 'button';
+        const act = state.selectedSuspectId === s.id;
+        b.className = `w-full p-2.5 text-left text-xs border flex items-center gap-2.5 ${act ? 'border-[#B51F32] bg-[#791C2A]/25 text-[#F2F0EC]' : 'border-[#30323A] bg-[#111318] text-[#92949D]'}`;
+        b.innerHTML = `<div class="w-8 h-8 shrink-0 border border-[#30323A]">${getPortraitSVG(s.color, s.idx)}</div><div><div class="font-bold">${s.name}</div><div class="text-[10px]">${s.role}</div></div>`;
+        b.addEventListener('click', () => { state.selectedSuspectId = s.id; renderWorkspaceAll(); });
+        isl.appendChild(b);
+      });
+
+      const activeS = c.suspects.find(x => x.id === state.selectedSuspectId);
+      if (activeS) {
+        document.getElementById('interr-active-portrait').innerHTML = getPortraitSVG(activeS.color, activeS.idx);
+        document.getElementById('interr-active-name').textContent = activeS.name;
+        document.getElementById('interr-active-role').textContent = activeS.role;
+      }
+
+      const iel = document.getElementById('interr-evidence-list'); iel.innerHTML = '';
+      discovered.forEach(cl => {
+        const b = document.createElement('button'); b.type = 'button';
+        b.className = 'w-full p-2 text-left text-[11px] bg-[#111318] border border-[#30323A] hover:border-[#B51F32] text-[#F2F0EC]';
+        b.textContent = `Present: ${cl.title}`;
+        b.addEventListener('click', () => presentEvidence(cl));
+        iel.appendChild(b);
+      });
+
+      // Timeline
+      const tl = document.getElementById('timeline-events'); tl.innerHTML = '';
+      c.timeline.forEach(t => {
+        const d = document.createElement('div');
+        d.className = `p-3.5 border ${t.conflict ? 'border-[#B51F32] bg-[#791C2A]/20' : 'border-[#30323A] bg-[#111318]'} text-xs`;
+        d.innerHTML = `<div class="font-mono text-[11px] ${t.conflict ? 'text-[#B51F32]' : 'text-[#92949D]'}">${t.time} ${t.conflict ? '• CRITICAL WINDOW' : ''}</div><div class="text-[#F2F0EC] mt-1">${t.event}</div>`;
+        tl.appendChild(d);
+      });
+    }
+
+    // ---------- 7. EVIDENCE BOARD (ZOOM/PAN + POLAROID CARDS + CURVED RED STRINGS) ----------
+    function applyBoardTransform() {
+      const vp = document.getElementById('board-viewport');
+      vp.style.transform = `translate(${state.boardPanX}px, ${state.boardPanY}px) scale(${state.boardZoom})`;
+      document.getElementById('board-zoom-label').textContent = `${Math.round(state.boardZoom * 100)}%`;
+    }
+
+    function renderEvidenceBoard() {
+      const c = state.activeCase; if (!c) return;
+      applyBoardTransform();
+      const layer = document.getElementById('board-cards-layer');
+      const svg = document.getElementById('board-svg');
+      layer.innerHTML = ''; svg.innerHTML = '';
+
+      const discovered = c.clues.filter(x => x.discovered);
+      discovered.forEach(cl => {
+        const card = document.createElement('div');
+        card.className = 'evidence-card absolute w-52 p-2.5 bg-[#17191F] border border-[#30323A] shadow-2xl text-[11px]';
+        card.style.left = `${cl.x}px`; card.style.top = `${cl.y}px`;
+        card.innerHTML = `
+          <div class="w-3 h-3 rounded-full bg-[#B51F32] border border-white/40 absolute -top-1.5 left-1/2 -translate-x-1/2 shadow"></div>
+          <div class="h-16 mb-2 border border-[#30323A] overflow-hidden">${getEvidencePhotoSVG(cl.category)}</div>
+          <div class="flex justify-between items-center mb-1">
+            <span class="font-mono text-[9px] text-[#B51F32] uppercase">${cl.category}</span>
+            <div class="flex gap-1">
+              <button type="button" class="inspect-btn px-1.5 py-0.5 bg-[#20232B] border border-[#30323A] text-[9px] text-[#F2F0EC]">View</button>
+              <button type="button" class="link-btn px-1.5 py-0.5 bg-[#791C2A]/40 border border-[#B51F32] text-[9px] text-[#F2F0EC]">${state.linkSourceId === cl.id ? 'Linking' : 'Link'}</button>
+            </div>
+          </div>
+          <div class="font-bold text-[#F2F0EC]">${cl.title}</div>`;
+
+        card.querySelector('.inspect-btn').addEventListener('click', (e) => { e.stopPropagation(); openEvidenceModal(cl); });
+        card.querySelector('.link-btn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (!state.linkSourceId) { state.linkSourceId = cl.id; renderEvidenceBoard(); }
+          else if (state.linkSourceId !== cl.id) { c.threads.push([state.linkSourceId, cl.id]); state.linkSourceId = null; renderEvidenceBoard(); }
+          else { state.linkSourceId = null; renderEvidenceBoard(); }
+        });
+
+        let dragging = false, ox = 0, oy = 0;
+        const down = (e) => {
+          if (e.target.closest('button')) return;
+          e.stopPropagation(); dragging = true;
+          const pt = e.touches ? e.touches[0] : e;
+          ox = pt.clientX / state.boardZoom - cl.x; oy = pt.clientY / state.boardZoom - cl.y;
+        };
+        const move = (e) => {
+          if (!dragging) return;
+          const pt = e.touches ? e.touches[0] : e;
+          cl.x = Math.max(8, Math.min(1300, pt.clientX / state.boardZoom - ox));
+          cl.y = Math.max(8, Math.min(800, pt.clientY / state.boardZoom - oy));
+          card.style.left = `${cl.x}px`; card.style.top = `${cl.y}px`;
+          drawThreads();
+        };
+        const up = () => { dragging = false; };
+        card.addEventListener('mousedown', down); window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
+        card.addEventListener('touchstart', down); window.addEventListener('touchmove', move); window.addEventListener('touchend', up);
+        layer.appendChild(card);
+      });
+
+      function drawThreads() {
+        svg.innerHTML = '';
+        c.threads.forEach(([aId, bId]) => {
+          const a = c.clues.find(x => x.id === aId), b = c.clues.find(x => x.id === bId);
+          if (a && b) {
+            const x1 = a.x + 104, y1 = a.y + 4, x2 = b.x + 104, y2 = b.y + 4;
+            const mx = (x1 + x2) / 2, my = Math.max(y1, y2) + 28;
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', `M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`);
+            path.setAttribute('fill', 'none'); path.setAttribute('stroke', '#B51F32'); path.setAttribute('stroke-width', '2.2');
+            svg.appendChild(path);
+          }
+        });
+      }
+      drawThreads();
+
+      const nl = document.getElementById('board-notes-list'); nl.innerHTML = '';
+      c.notes.forEach(n => {
+        const sp = document.createElement('span');
+        sp.className = 'px-3 py-1.5 bg-[#20232B] border border-[#30323A] text-xs font-serif italic text-[#F2F0EC]';
+        sp.textContent = `"${n}"`;
+        nl.appendChild(sp);
+      });
+    }
+
+    // ---------- 8. INTERROGATION & DEDUCTION ----------
+    function addInterrMsg(who, text) {
+      const box = document.getElementById('interr-chat');
+      const div = document.createElement('div');
+      div.className = `p-3.5 border ${who === 'Investigator' ? 'border-[#30323A] bg-[#20232B] ml-8' : 'border-[#791C2A] bg-[#791C2A]/20 mr-8'}`;
+      div.innerHTML = `<div class="font-mono text-[10px] ${who === 'Investigator' ? 'text-[#92949D]' : 'text-[#B51F32]'} uppercase mb-1">${who}</div><div class="text-[#F2F0EC] leading-relaxed">${text}</div>`;
+      box.appendChild(div); box.scrollTop = box.scrollHeight;
+    }
+
+    function presentEvidence(clue) {
+      const c = state.activeCase, s = c.suspects.find(x => x.id === state.selectedSuspectId);
+      addInterrMsg('Investigator', `Look at this: "${clue.title}". Explain how this fits your story.`);
+      if (s.id === c.truth.culpritId && clue.id === c.truth.keyClueId) {
+        s.contradictionExposed = true;
+        document.getElementById('interr-contradiction-badge').classList.remove('hidden');
+        addInterrMsg(s.name, `"That badge log... you weren't supposed to recover that! Look, I had no choice—${c.truth.motive.toLowerCase()}."`);
+        toast('CONTRADICTION EXPOSED!'); renderWorkspaceAll();
+      } else {
+        addInterrMsg(s.name, `"I don't see how ${clue.title} implicates me. My timeline holds up."`);
+      }
+    }
+
+    function openDeductionScreen() {
+      const c = state.activeCase; if (!c) return;
+      document.getElementById('ded-culprit').innerHTML = c.suspects.map(s => `<option value="${s.id}">${s.name} (${s.role})</option>`).join('');
+      document.getElementById('ded-motive').innerHTML = MOTIVES.map(m => `<option value="${m}">${m}</option>`).join('');
+      const disc = c.clues.filter(x => x.discovered);
+      document.getElementById('ded-evidence').innerHTML = disc.length ? disc.map(cl => `<option value="${cl.id}">${cl.title}</option>`).join('') : '<option value="none">No physical evidence collected</option>';
+      showScreen('deduction');
+    }
+
+    function evaluateDeduction(e) {
+      e.preventDefault();
+      const c = state.activeCase; if (state.timerId) clearInterval(state.timerId);
+      const culId = document.getElementById('ded-culprit').value, mot = document.getElementById('ded-motive').value, evId = document.getElementById('ded-evidence').value;
+      let score = 0;
+      if (culId === c.truth.culpritId) score += 45;
+      if (mot === c.truth.motive) score += 25;
+      if (evId === c.truth.keyClueId) score += 30;
+      const solved = culId === c.truth.culpritId && score >= 70;
+      const earnedXP = Math.round((solved ? 180 : 35) * c.difficulty.xpMult);
+
+      state.attempted++; if (solved) state.solved++; state.xp += earnedXP;
+      state.history.unshift({ id: c.caseId, title: c.title, diff: c.difficulty.name, solved, acc: score, date: new Date().toLocaleDateString() });
+      state.activeCase = null; document.getElementById('nav-workspace-btn').classList.add('hidden'); saveState();
+
+      const badge = document.getElementById('result-badge');
+      badge.textContent = solved ? 'CASE CLOSED • TRUTH PROVEN' : 'CASE FAILED • INSUFFICIENT PROOF';
+      badge.className = `inline-block px-3 py-1 text-xs font-mono uppercase border ${solved ? 'border-emerald-700 bg-emerald-950/30 text-emerald-300' : 'border-[#B51F32] bg-[#791C2A]/30 text-[#F2F0EC]'}`;
+      document.getElementById('result-title').textContent = solved ? `${c.truth.culpritName} Indicted` : `The True Culprit Escaped`;
+      document.getElementById('res-acc').textContent = `${score}%`;
+      document.getElementById('res-xp').textContent = `+${earnedXP}`;
+      document.getElementById('res-time').textContent = document.getElementById('ws-timer').textContent;
+      document.getElementById('res-truth-text').textContent = c.truth.twist;
+      showScreen('result');
+    }
+
+    function renderHistory() {
+      const box = document.getElementById('history-list'); box.innerHTML = '';
+      if (!state.history.length) { box.innerHTML = '<div class="text-xs text-[#92949D]">No closed cases yet.</div>'; return; }
+      state.history.forEach(h => {
+        const d = document.createElement('div');
+        d.className = 'noir-panel p-4 flex items-center justify-between text-xs';
+        d.innerHTML = `<div><div class="font-mono text-[10px] text-[#92949D]">${h.id} • ${h.diff} • ${h.date}</div><div class="font-serif text-xl font-bold text-[#F2F0EC]">${h.title}</div></div><span class="px-2.5 py-1 font-mono text-[11px] border ${h.solved ? 'border-emerald-800 text-emerald-300' : 'border-[#B51F32] text-[#F2F0EC]'}">${h.solved ? 'SOLVED' : 'FAILED'} (${h.acc}%)</span>`;
+        box.appendChild(d);
+      });
+    }
+
+    // ---------- 9. INIT ----------
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.lucide) lucide.createIcons();
+      initRain3D(); renderSetup();
+
+      setTimeout(() => { document.getElementById('loader-bar').style.width = '100%'; }, 80);
+      setTimeout(() => {
+        const ld = document.getElementById('screen-loading'); ld.style.opacity = '0';
+        setTimeout(() => { ld.classList.add('hidden'); showScreen('landing'); }, 450);
+      }, 900);
+
+      document.querySelectorAll('.nav-link').forEach(b => b.addEventListener('click', () => showScreen(b.getAttribute('data-screen'))));
+      document.getElementById('brand-home-btn').addEventListener('click', () => showScreen('landing'));
+      document.getElementById('mobile-sidebar-btn').addEventListener('click', openSidebar);
+      document.getElementById('close-sidebar-btn').addEventListener('click', closeSidebar);
+      document.getElementById('sidebar-backdrop').addEventListener('click', closeSidebar);
+
+      document.getElementById('landing-start-btn').addEventListener('click', () => showScreen('dashboard'));
+      document.getElementById('dash-new-btn').addEventListener('click', () => showScreen('setup'));
+      document.getElementById('dash-resume-btn').addEventListener('click', () => showScreen('workspace'));
+
+      const launchDaily = () => {
+        const d = new Date(), seed = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+        startCase(buildCaseLocal(CATEGORIES[seed % CATEGORIES.length].id, 3, seed));
+      };
+      document.getElementById('landing-daily-btn').addEventListener('click', launchDaily);
+      document.getElementById('dash-daily-btn').addEventListener('click', launchDaily);
+      document.getElementById('generate-case-btn').addEventListener('click', () => startCase(buildCaseLocal(state.selectedCategory, state.selectedDiff)));
+
+      document.querySelectorAll('.ws-tab').forEach(b => b.addEventListener('click', () => switchWsTab(b.getAttribute('data-wstab'))));
+      document.getElementById('ws-deduce-btn').addEventListener('click', openDeductionScreen);
+      document.getElementById('ded-back-btn').addEventListener('click', () => showScreen('workspace'));
+      document.getElementById('deduction-form').addEventListener('submit', evaluateDeduction);
+      document.getElementById('res-dash-btn').addEventListener('click', () => showScreen('dashboard'));
+      document.getElementById('res-new-btn').addEventListener('click', () => showScreen('setup'));
+
+      document.getElementById('ws-hint-btn').addEventListener('click', () => {
+        const c = state.activeCase; if (!c) return;
+        if (c.hintsLeft <= 0) { toast('No hints remaining.'); return; }
+        c.hintsLeft--; c.hintsUsed++; state.totalHints++; saveState();
+        const hb = document.getElementById('ws-hint-box'); hb.classList.remove('hidden');
+        hb.textContent = `Bureau Hint (${c.hintsLeft} left): Focus on physical timestamps in ${c.location} and compare them against the East Wing Lounge alibi.`;
+      });
+
+      // Evidence Board Pan & Zoom
+      const boardEl = document.getElementById('evidence-board-canvas');
+      let panning = false, px0 = 0, py0 = 0;
+      boardEl.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.evidence-card')) return;
+        panning = true; px0 = e.clientX - state.boardPanX; py0 = e.clientY - state.boardPanY;
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (!panning) return;
+        state.boardPanX = e.clientX - px0; state.boardPanY = e.clientY - py0; applyBoardTransform();
+      });
+      window.addEventListener('mouseup', () => { panning = false; });
+
+      document.getElementById('board-zoom-in').addEventListener('click', () => { state.boardZoom = Math.min(1.5, state.boardZoom + 0.15); applyBoardTransform(); });
+      document.getElementById('board-zoom-out').addEventListener('click', () => { state.boardZoom = Math.max(0.65, state.boardZoom - 0.15); applyBoardTransform(); });
+      document.getElementById('board-reset-view').addEventListener('click', () => { state.boardZoom = 1; state.boardPanX = 0; state.boardPanY = 0; applyBoardTransform(); });
+      document.getElementById('board-clear-lines-btn').addEventListener('click', () => { if (state.activeCase) { state.activeCase.threads = []; renderEvidenceBoard(); } });
+      document.getElementById('board-add-note-btn').addEventListener('click', () => {
+        const inp = document.getElementById('board-note-input'), txt = inp.value.trim();
+        if (txt && state.activeCase) { state.activeCase.notes.push(txt); inp.value = ''; renderEvidenceBoard(); }
+      });
+
+      document.getElementById('ev-modal-close').addEventListener('click', () => {
+        const m = document.getElementById('evidence-modal'); m.classList.add('hidden'); m.classList.remove('flex');
+      });
+
+      document.querySelectorAll('.quick-q').forEach(b => b.addEventListener('click', () => {
+        const c = state.activeCase, s = c.suspects.find(x => x.id === state.selectedSuspectId), t = b.getAttribute('data-q');
+        if (t === 'alibi') { addInterrMsg('Investigator', 'Where were you during the critical window?'); addInterrMsg(s.name, s.alibi); }
+        if (t === 'motive') { addInterrMsg('Investigator', 'What was your relationship with the victim?'); addInterrMsg(s.name, `"${s.background} That doesn't make me guilty."`); }
+        if (t === 'others') { addInterrMsg('Investigator', 'Did you see anyone else acting suspiciously?'); addInterrMsg(s.name, `"Everyone here has something to hide. Check the physical logs."`); }
+      }));
+
+      document.getElementById('interr-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const inp = document.getElementById('interr-input'), q = inp.value.trim();
+        if (!q || !state.activeCase) return;
+        const s = state.activeCase.suspects.find(x => x.id === state.selectedSuspectId);
+        addInterrMsg('Investigator', q); inp.value = '';
+        setTimeout(() => addInterrMsg(s.name, `"Regarding '${q}' — I stand by my statement: ${s.alibi}"`), 350);
+      });
+
+      document.getElementById('audio-toggle-btn').addEventListener('click', toggleAmbientAudio);
+      document.getElementById('audio-toggle-mob').addEventListener('click', toggleAmbientAudio);
+      document.getElementById('set-audio-btn').addEventListener('click', toggleAmbientAudio);
+      document.getElementById('set-rain-btn').addEventListener('click', () => {
+        rainEnabled = !rainEnabled;
+        if (!rainEnabled && rainCleanup) rainCleanup(); else initRain3D();
+        document.getElementById('set-rain-btn').textContent = rainEnabled ? 'Enabled' : 'Disabled';
+      });
+      document.getElementById('set-reset-btn').addEventListener('click', () => {
+        state.xp = 0; state.solved = 0; state.attempted = 0; state.totalHints = 0; state.history = [];
+        saveState(); toast('Investigator progress reset.'); renderDashboard();
+      });
+    });
+  </script>
+</body>
+</html>
